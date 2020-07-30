@@ -1,4 +1,5 @@
-This directory contains scripts for extracting text and speech features.
+This repository contains scripts for extracting text and speech features. Features are primarily designed to be
+extracted from the outputs of automatic speech recognition models (e.g. text, timing, confidence scores).
 
 The subdirectories are as follows:
 *  `text_features` contains scripts for extracting text features. They can be extracted from transcribed speech or written text.
