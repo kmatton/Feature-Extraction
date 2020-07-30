@@ -12,7 +12,7 @@ from gensim.models import CoherenceModel
 import matplotlib.pyplot as plt
 
 # import helper scripts
-from preprocess_text import *
+from archived.preprocess_text import *
 from text_util import *
 
 import warnings

@@ -16,14 +16,16 @@ dictionary as well as linguistic process measures computed as part of the LIWC t
 PARSE, CAT_NAMES = liwc.load_token_parser(config.LIWC_2007_PATH)
 
 
-def extract_LIWC_feats(segments):
+def extract_liwc_feats(segments):
     """
     Computes LIWC features for list text segments and stores in dictionary.
-    :param segments: List of text segments, where each segment is a string.
+    :param segments: List of text segments, where each segment is a string. Segments are used to determine what
+                     words are consecutive in order to identify bigrams + trigrams.
     :return: feats_dict: Dictionary mapping feature name to value for transcript
     """
     # compute feature values
     feats_dict = {}
+    segments = [s.split(" ") for s in segments]
     words = list(itertools.chain.from_iterable(segments))
     # Generate lists of all bigrams and trigrams because some are in LIWC vocabulary (.e.g "is don't know", "you know")
     bigrams = []

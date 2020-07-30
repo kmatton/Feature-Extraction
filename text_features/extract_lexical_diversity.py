@@ -69,14 +69,14 @@ def get_honores_statistic(words, feats_dict):
     feats_dict["HS"] = 100 * np.log(total_words / float(1 - single_time_words / float(unique_words + epsilon)))
 
 
-def extract_lexical_diversity_feats(segments):
+def extract_lexical_diversity_feats(text):
     """
-    Computes lexical diversity features for list of text segments and stores in dictionary.
-    :param segments: List of text segments. Each segment is a string.
+    Computes lexical diversity features for input text document and stores in dictionary.
+    :param text: string with the text of a document to extract features for
     :return: Dictionary mapping feature names to values
     """
-    # collect all words across all segments
-    words = [word for segment in segments for word in segment.split(" ")]
+    # collect all words
+    words = text.split(" ")
     feats_dict = {}
     for window in [10, 25, 50]:
         compute_MATTR(words, feats_dict, window)

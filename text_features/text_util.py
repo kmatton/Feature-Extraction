@@ -1,3 +1,5 @@
+import re
+
 import gensim
 import nltk
 from nltk.corpus import wordnet
@@ -10,6 +12,8 @@ Contains utility functions for basic text processing operations (e.g. lemmatizin
 
 
 LEMMATIZER = WordNetLemmatizer()
+nltk.download('punkt')
+SENTENCE_TOKENIZER = nltk.data.load('tokenizers/punkt/english.pickle')
 
 
 def get_wordnet_pos(treebank_tag):
@@ -87,3 +91,19 @@ def extract_trigrams(bigram_model, trigram_model, texts):
     :return: object in same form as text that contains unigrams, bigrams, and trigrams.
     """
     return [trigram_model[bigram_model[doc]] for doc in texts]
+
+
+def split_into_sentences(text):
+    """
+    :param text: str to split into sentences
+    :return: list of strings, where each string is a sentence
+    """
+    return SENTENCE_TOKENIZER.tokenize(text)
+
+
+def remove_punctuation_except_apostrophes(text):
+    """
+    :param text: str to remove punctuation from
+    :return: string without punctuation (except apostrophes)
+    """
+    return re.sub(r"[^\w\d'\s]+", '', text)

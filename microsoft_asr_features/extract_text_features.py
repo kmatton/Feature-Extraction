@@ -1,11 +1,17 @@
 import argparse
+import os
 import re
 
 import pandas as pd
 
+from extract_graph import extract_graph_feats
+from extract_lexical_diversity import extract_lexical_diversity_feats
+from extract_liwc_2007 import extract_liwc_feats
+from text_util import remove_punctuation_except_apostrophes, split_into_sentences
+
 
 """
-Script for extracting text features (i.e. those in text-features/) from the outputs of a Microsoft speech-to-text
+Script for extracting text features (i.e. those in text_features/) from the outputs of a Microsoft speech-to-text
 model (https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/index-speech-to-text) as produced
 by the asr-models-support/Microsoft/speech_to_text.py script in https://github.com/kmatton/ASR-Helper. 
 More specifically, this script is designed to extract features from the recognizer.csv files produced by the
@@ -68,13 +74,66 @@ class MicrosoftTextFeatureExtractor:
         :param output_dir: path to directory to output feature files to
         """
         if "graph" in feature_set_names:
-            # keep segments as identified by speech-to-text model (i.e. don't break up sentences within utterances)
-            # keep capitalization & keep apostrophes, but remove all other punctuation
-            for key, val in self.text_dict.items():
-                text = val['text']
-                # remove punctuation except apostrophes from each segment
-                text = [re.sub(r"[^\w\d'\s]+", '', segment) for segment in text]
-                feat_dict =
+            print('extracting graph features')
+            self.extract_graph_features(output_dir)
+        if "lexical_diversity" in feature_set_names:
+            print('extracting lexical diversity features')
+            self.extract_lexical_diversity_features(output_dir)
+        if "liwc" in feature_set_names:
+            print('extracting LIWC features')
+            self.extract_liwc_features(output_dir)
+        if "pos" in feature_set_names:
+
+    def extract_graph_features(self, output_dir):
+        """
+        Extract graph features for each entry in self.text_dict and store in CSV file.
+        :param output_dir: path to directory to output features to
+        """
+        # keep segments as identified by speech-to-text model (i.e. don't break up sentences within utterances)
+        # keep capitalization & keep apostrophes, but remove all other punctuation
+        graph_feats = []
+        for key, val in self.text_dict.items():
+            text = val['text']
+            text = [remove_punctuation_except_apostrophes(segment) for segment in text]
+            feats_dict = extract_graph_feats(text)
+            graph_feats.append(feats_dict)
+        graph_feats_df = pd.DataFrame(graph_feats)
+        graph_feats_df.to_csv(os.path.join(output_dir, "graph_features.csv"))
+
+    def extract_lexical_diversity_features(self, output_dir):
+        """
+        Extract lexical diversity features for each entry in self.text_dict and store in CSV file.
+        :param output_dir: path to directory to output features to
+        """
+        # use basic text version of ASR output (don't need capitalization or punctuation)
+        # combine all segments into single document
+        ld_feats = []
+        for key, val in self.text_dict.items():
+            text = val['text_basic']
+            text = " ".join(text)
+            feats_dict = extract_lexical_diversity_feats(text)
+            ld_feats.append(feats_dict)
+        ld_feats_df = pd.DataFrame(ld_feats)
+        ld_feats_df.to_csv(os.path.join(output_dir, "lexical_diversity_features.csv"))
+
+    def extract_liwc_features(self, output_dir):
+        """
+        Extract LIWC features for each entry in self.text_dict and store in CSV file.
+        :param output_dir: path to directory to output features to
+        """
+        # split into sentences based on punctuation
+        # then remove all punctuation except apostrophes & make lower case
+        liwc_feats = []
+        for key, val in self.text_dict.items():
+            text = " ".join(val['text'])
+            # split into sentences
+            sentences = split_into_sentences(text)
+            # remove punctuation & make lower case
+            sentences = [remove_punctuation_except_apostrophes(sent).lower() for sent in sentences]
+            feats_dict = extract_liwc_feats(sentences)
+            liwc_feats.append(feats_dict)
+        ld_feats_df = pd.DataFrame(liwc_feats)
+        ld_feats_df.to_csv(os.path.join(output_dir, "liwc_features.csv"))
 
 
 def _read_file_by_lines(filename):
@@ -93,7 +152,7 @@ def _parse_args():
                              "asr-models-support/Microsoft/speech_to_text.py script in "
                              "https://github.com/kmatton/ASR-Helper.")
     parser.add_argument('--feature_list', type=str, nargs='+',
-                        default=['graph', 'lexical_diversity', 'liwc_2007', 'pos', 'verbosity'],
+                        default=['graph', 'lexical_diversity', 'liwc', 'pos', 'verbosity'],
                         help="(Optional) Names of text features sets to extract. "
                              "Defaults to extracting all feature sets.")
     parser.add_argument('--output_dir', type=str, help="Path to directory to output feature files to.")
