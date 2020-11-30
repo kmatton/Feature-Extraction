@@ -1,8 +1,10 @@
-import configparser
+import os 
 
 """
-Read in arguments from text config file.
+Base class for specifying general project configuration options.
 """
-cfg = configparser.ConfigParser()
-cfg.read("config.txt")
-LIWC_2007_PATH = cfg["DATA_LOCAtIONS"]["LIWC_2007_PATH"]
+
+class Config:
+    def __init__(self):
+        self.project_root = '/nfs/turbo/McInnisLab/hnorthru/code/kmatton/Feature-Extraction'
+        self.LIWC_2007_PATH = os.path.join(self.project_root, 'text_features/LIWC2007_English_adapted.dic')
