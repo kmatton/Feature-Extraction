@@ -4,10 +4,14 @@ import re
 
 import pandas as pd
 
-from extract_graph import extract_graph_feats
-from extract_lexical_diversity import extract_lexical_diversity_feats
-from extract_liwc_2007 import extract_liwc_feats
-from text_util import remove_punctuation_except_apostrophes, split_into_sentences
+from IPython import embed
+
+from text_features.extract_graph import extract_graph_feats
+from text_features.extract_lexical_diversity import extract_lexical_diversity_feats
+from text_features.extract_liwc_2007 import extract_liwc_feats
+from text_features.extract_pos import extract_pos_features
+from text_features.extract_verbosity_stats import get_verbosity_stats
+from text_features.text_util import remove_punctuation_except_apostrophes, split_into_sentences
 
 
 """
@@ -61,10 +65,16 @@ class MicrosoftTextFeatureExtractor:
             combined_df.set_index('audio_file_id', inplace=True)
         sort_column = "order" if "order" in combined_df.columns else "segment_number"
         for idx in set(combined_df.index.values):
+            #print(idx)
             text_dict[idx] = {}
-            sorted_entries = combined_df.loc[idx].sort_values(sort_column)
-            text_dict[idx]['text'] = sorted_entries['text'].values
-            text_dict[idx]['text_basic'] = sorted_entries['text_basic'].values
+            if len(combined_df.loc[idx].shape) == 1:
+                sorted_entries = combined_df.loc[idx, :]
+                text_dict[idx]['text'] = [sorted_entries['text']]
+                text_dict[idx]['text_basic'] = [sorted_entries['text_basic']]
+            else:
+                sorted_entries = combined_df.loc[idx].sort_values(sort_column)
+                text_dict[idx]['text'] = sorted_entries['text'].values
+                text_dict[idx]['text_basic'] = sorted_entries['text_basic'].values
         return text_dict
 
     def extract_features(self, feature_set_names, output_dir):
@@ -83,6 +93,11 @@ class MicrosoftTextFeatureExtractor:
             print('extracting LIWC features')
             self.extract_liwc_features(output_dir)
         if "pos" in feature_set_names:
+            print('extracting POS features')
+            self.extract_parts_of_speech_features(output_dir) 
+        if "verbosity" in feature_set_names:
+            print('extracting verbosity features')
+            self.extract_verbosity_features(output_dir) 
 
     def extract_graph_features(self, output_dir):
         """
@@ -97,8 +112,8 @@ class MicrosoftTextFeatureExtractor:
             text = [remove_punctuation_except_apostrophes(segment) for segment in text]
             feats_dict = extract_graph_feats(text)
             graph_feats.append(feats_dict)
-        graph_feats_df = pd.DataFrame(graph_feats)
-        graph_feats_df.to_csv(os.path.join(output_dir, "graph_features.csv"))
+        feats_df = pd.DataFrame(graph_feats)
+        feats_df.to_csv(os.path.join(output_dir, "graph_features.csv"))
 
     def extract_lexical_diversity_features(self, output_dir):
         """
@@ -113,8 +128,8 @@ class MicrosoftTextFeatureExtractor:
             text = " ".join(text)
             feats_dict = extract_lexical_diversity_feats(text)
             ld_feats.append(feats_dict)
-        ld_feats_df = pd.DataFrame(ld_feats)
-        ld_feats_df.to_csv(os.path.join(output_dir, "lexical_diversity_features.csv"))
+        feats_df = pd.DataFrame(ld_feats)
+        feats_df.to_csv(os.path.join(output_dir, "lexical_diversity_features.csv"))
 
     def extract_liwc_features(self, output_dir):
         """
@@ -132,8 +147,46 @@ class MicrosoftTextFeatureExtractor:
             sentences = [remove_punctuation_except_apostrophes(sent).lower() for sent in sentences]
             feats_dict = extract_liwc_feats(sentences)
             liwc_feats.append(feats_dict)
-        ld_feats_df = pd.DataFrame(liwc_feats)
-        ld_feats_df.to_csv(os.path.join(output_dir, "liwc_features.csv"))
+        feats_df = pd.DataFrame(liwc_feats)
+        feats_df.to_csv(os.path.join(output_dir, "liwc_features.csv"))
+
+    def extract_parts_of_speech_features(self, output_dir):
+        """
+        Extract parts of speech (POS) features for each entry in self.text_dict and store in CSV file.
+        :param output_dir: path to directory to output features to
+        """
+        # split into sentences based on punctuation
+        # then remove all punctuation except apostrophes & make lower case
+        pos_feats = []
+        for key, val in self.text_dict.items():
+            text = " ".join(val['text'])
+            # split into sentences
+            sentences = split_into_sentences(text)
+            # remove punctuation & make lower case
+            sentences = [remove_punctuation_except_apostrophes(sent).lower() for sent in sentences]
+            feats_dict = extract_pos_features(sentences)
+            pos_feats.append(feats_dict)
+        feats_df = pd.DataFrame(pos_feats)
+        feats_df.to_csv(os.path.join(output_dir, "pos_features.csv"))
+
+    def extract_verbosity_features(self, output_dir):
+        """
+        Extract verbosity features for each entry in self.text_dict and store in CSV file.
+        :param output_dir: path to directory to output features to
+        """
+        # split into sentences based on punctuation
+        # then remove all punctuation except apostrophes & make lower case
+        pos_feats = []
+        for key, val in self.text_dict.items():
+            text = " ".join(val['text'])
+            # split into sentences
+            sentences = split_into_sentences(text)
+            # remove punctuation & make lower case
+            sentences = [remove_punctuation_except_apostrophes(sent).lower() for sent in sentences]
+            feats_dict = get_verbosity_stats(sentences)
+            pos_feats.append(feats_dict)
+        feats_df = pd.DataFrame(pos_feats)
+        feats_df.to_csv(os.path.join(output_dir, "verbosity_features.csv"))
 
 
 def _read_file_by_lines(filename):
@@ -164,3 +217,7 @@ def main():
     recognition_result_files = _read_file_by_lines(args.ms_asr_output_files)
     text_feat_extractor = MicrosoftTextFeatureExtractor(recognition_result_files)
     text_feat_extractor.extract_features(set(args.feature_list), args.output_dir)
+
+
+if __name__ == '__main__':
+    main()
