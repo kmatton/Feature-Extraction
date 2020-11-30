@@ -4,7 +4,7 @@ from collections import Counter
 import liwc
 import numpy as np
 
-import config
+from text_features.config import Config
 
 
 """
@@ -12,7 +12,7 @@ Contains functions to compute LIWC measures. This includes proportions of words 
 dictionary as well as linguistic process measures computed as part of the LIWC tool (i.e. word count, etc.).
 """
 
-
+config = Config()
 PARSE, CAT_NAMES = liwc.load_token_parser(config.LIWC_2007_PATH)
 
 
