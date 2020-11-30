@@ -1,10 +1,13 @@
 import networkx as nx
 import nltk
+nltk.download('averaged_perceptron_tagger')
+nltk.download('wordnet')
 import numpy as np
 import truecase
 
-from text_util import lemmatize
+from text_features.text_util import lemmatize
 
+from IPython import embed
 
 """
 Contains functions to compute word graph measures.
@@ -161,7 +164,9 @@ def get_shortest_path_metrics(u_graph, graph_type, feats_dict):
     longest = 0
     average = 0
     num_pairs = 0
-    for component in nx.connected_component_subgraphs(u_graph):
+    #for component in nx.connected_component_subgraphs(u_graph):
+    cc_subgraphs = (u_graph.subgraph(c) for c in nx.connected_components(u_graph)) #networkx v2.5
+    for component in cc_subgraphs:
         lengths = dict(nx.all_pairs_shortest_path_length(component))
         nodes = list(component.nodes())
         num_nodes = len(nodes)
@@ -204,9 +209,10 @@ def get_graph_metrics(graph, graph_type, feats_dict):
     get_connectivity_measures(graph, u_graph, graph_type, feats_dict)
     num_p_edges, pe_l1_count = get_parallel_edges(graph, graph_type, feats_dict)
     # calculate number of self-loops (L1)
-    l_one = len(list(graph.selfloop_edges()))
+    #l_one = len(list(graph.selfloop_edges()))
+    l_one = len(list(nx.selfloop_edges(graph))) #networkx v2.5
     feats_dict['l1_{}'.format(graph_type)] = l_one
-    get_loops(graph, graph_type, feats_dict)
+    #get_loops(graph, graph_type, feats_dict)
     # calculate graph density (D)
     # This measure is defined for simple graphs. Therefore, we take E' = E - (L1 + PE).
     # i.e. duplicate edges in same direction only count once and self-loops are not counted
