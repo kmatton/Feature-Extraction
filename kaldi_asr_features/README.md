@@ -13,5 +13,4 @@ The included scripts are as follows:
 To generate the input files required by the above feature extraction scripts see 
 [this repository](https://github.com/kmatton/ASR-Helper). The relevant files are located in `asr-models-support/Kaldi`.
 
-Note that some of these scripts are specifically designed to work with the PRIORI dataset, but they can easily be adapted to 
-work with other datasets.
+Note that some of these scripts are specifically designed to work with the PRIORI dataset, but they can easily be adapted to work with other datasets.
