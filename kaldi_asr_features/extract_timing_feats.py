@@ -1,10 +1,10 @@
 import os
 import argparse
 import pandas as pd
-import extract_word_phone_timing as et
+import timing_features.extract_word_phone_timing as et
 
 """
-Script for extracting features from word-phone aligned timing files.
+Script for extracting features from Kaldi word-phone aligned timing files.
 """
 
 
@@ -135,13 +135,71 @@ def extract_features(input_dir, level, meta_df, duration_df):
         sub_timing_list = collect_timing_info_by_level(sub_id, sub_data_df, level)
         for id_elms, group_id, timing_info in sub_timing_list:
             # get total duration of data group (i.e. sum of times of all calls included)
-            total_duration = get_total_duration(sub_data_df, id_elms, group_id, duration_df)
-            group_feature_dict = et.get_feats(timing_info, total_duration)
+            total_duration = get_total_duration(sub_data_df, id_elms, group_id, duration_df) #seconds 
+            times_dict = get_times(timing_info)
+            group_feature_dict = et.get_feats(times_dict, total_duration) 
             for idx, id_elm in enumerate(id_elms):
                 group_feature_dict[id_elm] = group_id[idx]
             feature_list.append(group_feature_dict)
     feature_df = pd.DataFrame(feature_list)
     return feature_df
+
+def get_times(timing_info):
+    """
+    FOR KALDI 
+    Collect overall timing information of segments, silences, words, and phones. Also collect words per second and
+    phones per second rates for each segment.
+    :param timing_info: List of phone-level timing information. Each element in list gives
+    information related to the timing of a single phone.
+    :return: times_dict: dictionary that stores timing information extracted from timing_info list. Entries
+    are lists of the durations of "segments", "silences", "words", and "phones", as well as lists of
+    "wps" (words per second) and "pps" (phones per second) for each segment.
+    """
+    times_dict = {"segments": [], "silences": [], "words": [], "phones": [], "wps": [], "pps": []}
+    for segment_info in timing_info:
+        word_count = 0
+        phone_count = 0
+        word_start_time = -1
+        for phone_info in segment_info:
+            phone_info = phone_info.strip()
+            items = phone_info.split(" ")
+            if len(items) == 5:
+                # new word or silence
+                if word_start_time != -1:
+                    # we have a previous word
+                    word_end_time = int(items[0])
+                    word_len = (word_end_time - word_start_time) * 25 # 25 ms per frame
+                    times_dict["words"].append(word_len)
+                word = items[4]
+                if word == "[noise]" or word == "[laughter]":
+                    word_start_time = -1
+                    continue
+                if word == "sil":
+                    sil_len = (int(items[1]) - int(items[0])) * 25
+                    times_dict["silences"].append(sil_len)
+                    word_start_time = -1
+                    continue
+                word_start_time = int(items[0])
+                word_count += 1
+            phone_len = (int(items[1]) - int(items[0])) * 25
+            phone_count += 1
+            times_dict["phones"].append(phone_len)
+        # add in info for last word if there is one
+        # (can't just use presence of new word to indicate that this word ended)
+        phone_info = segment_info[-1]
+        phone_info = phone_info.strip()
+        items = phone_info.split(" ")
+        if word_start_time != -1:
+            word_end_time = int(items[1])  # the last word that has been seen ends here
+            word_len = (word_end_time - word_start_time) * 25
+            times_dict["words"].append(word_len)
+        if word_count == 0:
+            continue  # empty segment
+        seg_duration = float(int(items[1])) * 25 * .001  # convert ms to seconds
+        times_dict["segments"].append(seg_duration)
+        times_dict["wps"].append(word_count / seg_duration)
+        times_dict["pps"].append(phone_count / seg_duration)
+    return times_dict
 
 
 def main():
