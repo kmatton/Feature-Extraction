@@ -60,9 +60,13 @@ class MicrosoftASRConfidenceFeatureExtractor:
         for key, val in self.conf_dict.items():
             conf = val['confidence']
             feats_dict = self.get_conf_feats(conf)
+            feats_dict['id'] = key 
             conf_feats.append(feats_dict)
         feats_df = pd.DataFrame(conf_feats)
-        feats_df.to_csv(os.path.join(output_dir, "asr_conf_features.csv"))
+        cols = list(feats_df.columns)
+        cols = cols[-1:] + cols[:-1] #move 'id' column to first position
+        feats_df = feats_df[cols]
+        feats_df.to_csv(os.path.join(output_dir, "asr_conf_features.csv"), index=False)
     
     def get_conf_feats(self, conf_scores):
         feat_dict = {}

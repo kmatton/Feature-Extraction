@@ -1,13 +1,18 @@
 import os
+import sys 
 import argparse
 import pandas as pd
 import numpy as np
 from IPython import embed 
 
+sys.path.append(os.getcwd()) 
+sys.path.append('../timing_features') #for slurm jobs  
 from timing_features.extract_word_phone_timing import get_feats
 
 """
 Script for extracting timing features from Microsoft recognition_results.csv 
+#TODO currently implemented for call-level only, need to extend to day-level and segment-level 
+# SEE KALDI implementation - maybe code can be shared
 """
 
 class MicrosoftTimingFeatureExtractor:
@@ -156,10 +161,13 @@ class MicrosoftTimingFeatureExtractor:
             times_dict = val['timing']
             total_dur_sec = self.duration_df.loc[self.duration_df['call_id'] == key, 'duration_sec'].values[0] 
             feats_dict = get_feats(times_dict, total_dur_sec)  
+            feats_dict['id'] = key 
             timing_feats.append(feats_dict)
         feats_df = pd.DataFrame(timing_feats)
-        feats_df.to_csv(os.path.join(output_dir, "timing_features.csv"))
-    
+        #cols = list(feats_df.columns)
+        #cols = cols[-1:] + cols[:-1] #move 'id' column to first position
+        #feats_df = feats_df[cols]
+        feats_df.to_csv(os.path.join(output_dir, "timing_features.csv"), index=False)
     
 
 def _read_file_by_lines(filename):
