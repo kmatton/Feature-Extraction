@@ -1,11 +1,14 @@
 import argparse
 import os
+import sys 
 import re
-
 import pandas as pd
+from group_audio_files import add_feature_id 
 
 from IPython import embed
 
+sys.path.append(os.getcwd()) 
+sys.path.append('../text_features') #for slurm jobs  
 from text_features.extract_graph import extract_graph_feats
 from text_features.extract_lexical_diversity import extract_lexical_diversity_feats
 from text_features.extract_liwc_2007 import extract_liwc_feats
@@ -35,12 +38,15 @@ will be sorted based on the 'segment_number' column.
 
 
 class MicrosoftTextFeatureExtractor:
-    def __init__(self, recognition_result_files):
+    def __init__(self, recognition_result_files, args):
         """
         :param recognition_result_files: list of paths to files containing recognition results from Microsoft
                                          speech-to-text model
         """
         self.recognition_result_files = recognition_result_files
+        self.level = args.level 
+        self.call_type = args.call_type
+        self.metadata_path = args.metadata_path
         self.text_dict = self._collect_text()
 
     def _collect_text(self):
@@ -59,6 +65,9 @@ class MicrosoftTextFeatureExtractor:
             df = pd.read_csv(file_path)
             df_list.append(df)
         combined_df = pd.concat(df_list)
+        if self.level != None: 
+            #add 'feature_id' column based on settings  
+            combined_df = add_feature_id(combined_df, self.level, self.metadata_path, self.call_type)  
         if 'feature_id' in combined_df.columns:
             combined_df.set_index('feature_id', inplace=True)
         else:
@@ -111,9 +120,12 @@ class MicrosoftTextFeatureExtractor:
             text = val['text']
             text = [remove_punctuation_except_apostrophes(segment) for segment in text]
             feats_dict = extract_graph_feats(text)
+            feats_dict['id'] = key
             graph_feats.append(feats_dict)
         feats_df = pd.DataFrame(graph_feats)
-        feats_df.to_csv(os.path.join(output_dir, "graph_features.csv"))
+        feats_df = feats_df.set_index('id')
+        feats_df = feats_df.reset_index()
+        feats_df.to_csv(os.path.join(output_dir, "graph_features.csv"), index=False)
 
     def extract_lexical_diversity_features(self, output_dir):
         """
@@ -124,12 +136,16 @@ class MicrosoftTextFeatureExtractor:
         # combine all segments into single document
         ld_feats = []
         for key, val in self.text_dict.items():
-            text = val['text_basic']
-            text = " ".join(text)
+            text = val['text_basic'] 
+            #text = " ".join(text)            
+            text = " ".join(str(t) for t in text)
             feats_dict = extract_lexical_diversity_feats(text)
+            feats_dict['id'] = key
             ld_feats.append(feats_dict)
         feats_df = pd.DataFrame(ld_feats)
-        feats_df.to_csv(os.path.join(output_dir, "lexical_diversity_features.csv"))
+        feats_df = feats_df.set_index('id')
+        feats_df = feats_df.reset_index()
+        feats_df.to_csv(os.path.join(output_dir, "lexical_diversity_features.csv"), index=False)
 
     def extract_liwc_features(self, output_dir):
         """
@@ -140,15 +156,19 @@ class MicrosoftTextFeatureExtractor:
         # then remove all punctuation except apostrophes & make lower case
         liwc_feats = []
         for key, val in self.text_dict.items():
-            text = " ".join(val['text'])
+            #text = " ".join(val['text'])
+            text = " ".join(str(t) for t in val['text'])
             # split into sentences
             sentences = split_into_sentences(text)
             # remove punctuation & make lower case
             sentences = [remove_punctuation_except_apostrophes(sent).lower() for sent in sentences]
             feats_dict = extract_liwc_feats(sentences)
+            feats_dict['id'] = key
             liwc_feats.append(feats_dict)
         feats_df = pd.DataFrame(liwc_feats)
-        feats_df.to_csv(os.path.join(output_dir, "liwc_features.csv"))
+        feats_df = feats_df.set_index('id')
+        feats_df = feats_df.reset_index()
+        feats_df.to_csv(os.path.join(output_dir, "liwc_features.csv"), index=False)
 
     def extract_parts_of_speech_features(self, output_dir):
         """
@@ -159,15 +179,20 @@ class MicrosoftTextFeatureExtractor:
         # then remove all punctuation except apostrophes & make lower case
         pos_feats = []
         for key, val in self.text_dict.items():
-            text = " ".join(val['text'])
+            #text = " ".join(val['text'])
+            text = " ".join(str(t) for t in val['text'])
             # split into sentences
             sentences = split_into_sentences(text)
             # remove punctuation & make lower case
             sentences = [remove_punctuation_except_apostrophes(sent).lower() for sent in sentences]
+            #print(sentences) 
             feats_dict = extract_pos_features(sentences)
+            feats_dict['id'] = key
             pos_feats.append(feats_dict)
         feats_df = pd.DataFrame(pos_feats)
-        feats_df.to_csv(os.path.join(output_dir, "pos_features.csv"))
+        feats_df = feats_df.set_index('id')
+        feats_df = feats_df.reset_index()
+        feats_df.to_csv(os.path.join(output_dir, "pos_features.csv"), index=False)
 
     def extract_verbosity_features(self, output_dir):
         """
@@ -178,15 +203,19 @@ class MicrosoftTextFeatureExtractor:
         # then remove all punctuation except apostrophes & make lower case
         pos_feats = []
         for key, val in self.text_dict.items():
-            text = " ".join(val['text'])
+            #text = " ".join(val['text'])
+            text = " ".join(str(t) for t in val['text'])
             # split into sentences
             sentences = split_into_sentences(text)
             # remove punctuation & make lower case
             sentences = [remove_punctuation_except_apostrophes(sent).lower() for sent in sentences]
             feats_dict = get_verbosity_stats(sentences)
+            feats_dict['id'] = key
             pos_feats.append(feats_dict)
         feats_df = pd.DataFrame(pos_feats)
-        feats_df.to_csv(os.path.join(output_dir, "verbosity_features.csv"))
+        feats_df = feats_df.set_index('id')
+        feats_df = feats_df.reset_index()
+        feats_df.to_csv(os.path.join(output_dir, "verbosity_features.csv"), index=False)
 
 
 def _read_file_by_lines(filename):
@@ -209,13 +238,16 @@ def _parse_args():
                         help="(Optional) Names of text features sets to extract. "
                              "Defaults to extracting all feature sets.")
     parser.add_argument('--output_dir', type=str, help="Path to directory to output feature files to.")
+    parser.add_argument('--level', type=str, default=None, help='Data level (i.e. call, day)')
+    parser.add_argument('--metadata_path', type=str, default=None, help="Path to segment metadata file (subject, call, etc.).") 
+    parser.add_argument('--call_type', type=str, default='all', help='specifies type of call (assessment, personal, or all)')
     return parser.parse_args()
 
 
 def main():
     args = _parse_args()
     recognition_result_files = _read_file_by_lines(args.ms_asr_output_files)
-    text_feat_extractor = MicrosoftTextFeatureExtractor(recognition_result_files)
+    text_feat_extractor = MicrosoftTextFeatureExtractor(recognition_result_files, args)
     text_feat_extractor.extract_features(set(args.feature_list), args.output_dir)
 
 

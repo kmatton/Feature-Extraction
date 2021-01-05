@@ -5,18 +5,23 @@ import numpy as np
 
 from IPython import embed 
 
+from group_audio_files import add_feature_id 
+
 """
 Script for extracting speech intelligibility features (i.e. ASR confidence) from Microsoft recognition_results.csv 
 """
 
 
 class MicrosoftASRConfidenceFeatureExtractor:
-    def __init__(self, recognition_result_files):
+    def __init__(self, recognition_result_files, args):
         """
         :param recognition_result_files: list of paths to files containing recognition results from Microsoft
                                          speech-to-text model
         """
         self.recognition_result_files = recognition_result_files
+        self.level = args.level 
+        self.call_type = args.call_type
+        self.metadata_path = args.metadata_path
         self.conf_dict = self._collect_conf()
 
     def _collect_conf(self):
@@ -35,6 +40,9 @@ class MicrosoftASRConfidenceFeatureExtractor:
             df = pd.read_csv(file_path)
             df_list.append(df)
         combined_df = pd.concat(df_list)
+        if self.level != None: 
+            #add 'feature_id' column based on settings  
+            combined_df = add_feature_id(combined_df, self.level, self.metadata_path, self.call_type)  
         if 'feature_id' in combined_df.columns:
             combined_df.set_index('feature_id', inplace=True)
         else:
@@ -93,12 +101,15 @@ def _parse_args():
                              "asr-models-support/Microsoft/speech_to_text.py script in "
                              "https://github.com/kmatton/ASR-Helper.")
     parser.add_argument('--output_dir', type=str, help="Path to directory to output feature files to.")
+    parser.add_argument('--level', type=str, default=None, help='Data level (i.e. call, day)')
+    parser.add_argument('--metadata_path', type=str, default=None, help="Path to segment metadata file (subject, call, etc.).") 
+    parser.add_argument('--call_type', type=str, default='all', help='specifies type of call (assessment, personal, or all)')
     return parser.parse_args()
 
 def main():
     args = _parse_args()
     recognition_result_files = _read_file_by_lines(args.ms_asr_output_files)
-    conf_feat_extractor = MicrosoftASRConfidenceFeatureExtractor(recognition_result_files)
+    conf_feat_extractor = MicrosoftASRConfidenceFeatureExtractor(recognition_result_files, args)
     conf_feat_extractor.extract_conf_feats(args.output_dir)
 
 
