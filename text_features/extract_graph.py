@@ -253,9 +253,23 @@ def extract_graph_feats(segments):
         if seg.islower():
             segments[idx] = truecase.get_true_case(seg)
     # break segments up into words
-    segments_mixed_case = [s.split(" ") for s in segments]
+    #segments_mixed_case = [s.split(" ") for s in segments]
+    segments_mixed_case = []
+    for s in segments: 
+        text = s.split(" ") 
+        if '' in set(text):
+            text[:] = [w for w in text if w != '']
+        segments_mixed_case.append(text) 
+    
     # also get lowercase version (used for naive graph)
-    segments_lower_case = [s.lower().split() for s in segments]
+    #segments_lower_case = [s.lower().split() for s in segments]
+    segments_lower_case = []
+    for s in segments: 
+        text = s.lower().split() 
+        if '' in set(text):
+            text[:] = [w for w in text if w != '']
+        segments_lower_case.append(text) 
+    
     # build graphs
     naive_graph = create_naive_graph(segments_lower_case)
     lemma_graph = create_lemma_graph(segments_mixed_case)  # POS detection is used to help with lemmatization

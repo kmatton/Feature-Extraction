@@ -1,6 +1,6 @@
 import nltk
 import truecase
-
+from IPython import embed 
 
 """
 Contains functions to compute part of speech (POS) features. Uses PennTreebank POS types
@@ -89,6 +89,8 @@ def extract_pos_features(segments):
             segment_str = " ".join(segment)
             truecase_str = truecase.get_true_case(segment_str)
             segment = truecase_str.split(" ")
+        if '' in set(segment):
+            segment[:] = [w for w in segment if w != '']
         pos_seg = nltk.pos_tag(segment)
         for word, tag in pos_seg:
             update_feature_vals(tag, feats_dict)
