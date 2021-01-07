@@ -7,7 +7,7 @@ from group_audio_files import add_feature_id
 
 from IPython import embed
 
-sys.path.append(os.getcwd()) 
+sys.path.append(os.getcwd())  #for slurm jobs
 sys.path.append('../text_features') #for slurm jobs  
 from text_features.extract_graph import extract_graph_feats
 from text_features.extract_lexical_diversity import extract_lexical_diversity_feats
@@ -117,7 +117,8 @@ class MicrosoftTextFeatureExtractor:
         # keep capitalization & keep apostrophes, but remove all other punctuation
         graph_feats = []
         for key, val in self.text_dict.items():
-            text = val['text']
+            #text = val['text']
+            text = [str(s) for s in val['text']] 
             text = [remove_punctuation_except_apostrophes(segment) for segment in text]
             feats_dict = extract_graph_feats(text)
             feats_dict['id'] = key
