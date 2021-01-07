@@ -3,29 +3,39 @@ import sys
 import argparse
 import pandas as pd
 import numpy as np
+import math
 from IPython import embed 
+from group_audio_files import add_feature_id 
 
-sys.path.append(os.getcwd()) 
+sys.path.append(os.getcwd()) #for slurm jobs  
 sys.path.append('../timing_features') #for slurm jobs  
 from timing_features.extract_word_phone_timing import get_feats
 
 """
 Script for extracting timing features from Microsoft recognition_results.csv 
-#TODO currently implemented for call-level only, need to extend to day-level and segment-level 
-# SEE KALDI implementation - maybe code can be shared
 """
 
 class MicrosoftTimingFeatureExtractor:
-    def __init__(self, recognition_result_files, duration_file_path):
+    def __init__(self, recognition_result_files, args):
         """
         :param recognition_result_files: list of paths to files containing recognition results from Microsoft
                                          speech-to-text model
         """
         self.recognition_result_files = recognition_result_files
+        self.level = args.level 
+        self.call_type = args.call_type
+        self.metadata_path = args.metadata_path
         self.time_dict = self._collect_timing()
-        self.duration_df = pd.read_csv(duration_file_path)
-        self.duration_df['duration_ms'] = self.duration_df['duration']
-        self.duration_df['duration_sec'] = self.duration_df['duration'] * 10**-3
+        #set up duration_df 
+        self.duration_df = pd.read_csv(args.duration_file_path)
+        if 'duration_ms' not in set(self.duration_df.columns):
+            self.duration_df['duration_ms'] = self.duration_df['duration']
+        self.duration_df['duration_sec'] = self.duration_df['duration_ms'] * 10**-3
+        if self.level == 'day':
+            self.duration_df['id'] = self.duration_df['subject_id'].apply(str) + '_' + pd.to_datetime(self.duration_df['call_datetime']).dt.date.apply(str)
+        else: # self.level == 'call':
+            self.duration_df['id'] =  self.duration_df['call_id']
+        
 
     def _collect_timing(self):
         """
@@ -40,6 +50,9 @@ class MicrosoftTimingFeatureExtractor:
             df = pd.read_csv(file_path)
             df_list.append(df)
         combined_df = pd.concat(df_list)
+        if self.level != None: 
+            #add 'feature_id' column based on settings  
+            combined_df = add_feature_id(combined_df, self.level, self.metadata_path, self.call_type)
         if 'feature_id' in combined_df.columns:
             combined_df.set_index('feature_id', inplace=True)
         else:
@@ -156,19 +169,25 @@ class MicrosoftTimingFeatureExtractor:
         Extract timing features for each entry in self.times_dict and store in CSV file.
         :param output_dir: path to directory to output features to
         """
-        timing_feats = []
+        #timing_feats = []
         for key, val in self.time_dict.items():
             times_dict = val['timing']
-            total_dur_sec = self.duration_df.loc[self.duration_df['call_id'] == key, 'duration_sec'].values[0] 
+            total_dur_sec = self.duration_df.loc[self.duration_df['id'] == key, 'duration_sec'].sum()
             feats_dict = get_feats(times_dict, total_dur_sec)  
             feats_dict['id'] = key 
-            timing_feats.append(feats_dict)
-        feats_df = pd.DataFrame(timing_feats)
-        #cols = list(feats_df.columns)
-        #cols = cols[-1:] + cols[:-1] #move 'id' column to first position
-        #feats_df = feats_df[cols]
-        feats_df.to_csv(os.path.join(output_dir, "timing_features.csv"), index=False)
-    
+            #timing_feats.append(feats_dict)
+            feats_df = pd.DataFrame(feats_dict, index=[0])
+            feats_df = feats_df.set_index('id')
+            feats_df = feats_df.reset_index()
+            #save feature stats for index to file 
+            output_path = os.path.join(output_dir, str(key) + '.csv')
+            feats_df.to_csv(output_path, index=False) 
+
+
+def chunks(l, n_chunks):
+	n_in_chunk = math.ceil(float(len(l))/float(n_chunks))
+	for i in range(0,len(l),n_in_chunk):
+		yield l[i:i+n_in_chunk]
 
 def _read_file_by_lines(filename):
     """
@@ -186,14 +205,21 @@ def _parse_args():
                              "https://github.com/kmatton/ASR-Helper.")
     parser.add_argument('--output_dir', type=str, help="Path to directory to output feature files to.")
     parser.add_argument('-d', '--duration_file_path', type=str, help='Path to csv maps audio file to duration (ms)')
+    parser.add_argument('--job_num', type=int, default=1) 
+    parser.add_argument('--level', type=str, default=None, help='Data level (i.e. call, day)')
+    parser.add_argument('--metadata_path', type=str, default=None, help="Path to segment metadata file (subject, call, etc.).") 
+    parser.add_argument('--call_type', type=str, default='all', help='specifies type of call (assessment, personal, or all)')
     return parser.parse_args()
 
 def main():
     args = _parse_args()
     recognition_result_files = _read_file_by_lines(args.ms_asr_output_files)
-    timing_feat_extractor = MicrosoftTimingFeatureExtractor(recognition_result_files, args.duration_file_path)
+    #get subset 
+    recognition_result_files = list(chunks(recognition_result_files,100))[int(args.job_num)-1]  
+    print(len(recognition_result_files)) 
+    print(recognition_result_files) 
+    timing_feat_extractor = MicrosoftTimingFeatureExtractor(recognition_result_files, args)
     timing_feat_extractor.extract_timing_feats(args.output_dir)
-
 
 if __name__ == '__main__':
     main()
